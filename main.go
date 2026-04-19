@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 
@@ -104,8 +105,10 @@ func monitorHeadless() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Create log tailers
-	stdoutTailer := monitor.NewLogTailer("/Users/qiweili/rvmm/stdout", "stdout", posthogClient, logger)
-	stderrTailer := monitor.NewLogTailer("/Users/qiweili/rvmm/stderr", "stderr", posthogClient, logger)
+	stdoutPath := filepath.Join(cfg.Options.WorkingDirectory, "stdout")
+	stderrPath := filepath.Join(cfg.Options.WorkingDirectory, "stderr")
+	stdoutTailer := monitor.NewLogTailer(stdoutPath, "stdout", posthogClient, logger)
+	stderrTailer := monitor.NewLogTailer(stderrPath, "stderr", posthogClient, logger)
 
 	// Start monitoring in goroutines
 	var wg sync.WaitGroup

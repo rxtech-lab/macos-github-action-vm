@@ -28,6 +28,11 @@ type PlistData struct {
 func Install(log *zap.Logger, cfg *config.Config, configPath string, out io.Writer) error {
 	log.Info("Installing LaunchDaemon", zap.String("label", cfg.Daemon.Label))
 
+	plistPath, err := resolvePlistPath(cfg.Daemon.PlistPath, cfg.Daemon.Label)
+	if err != nil {
+		return fmt.Errorf("failed to resolve plist path: %w", err)
+	}
+
 	// Get absolute paths
 	binaryPath, err := os.Executable()
 	if err != nil {
@@ -65,7 +70,6 @@ func Install(log *zap.Logger, cfg *config.Config, configPath string, out io.Writ
 	}
 
 	// Write plist file
-	plistPath := cfg.Daemon.PlistPath
 	if err := os.MkdirAll(filepath.Dir(plistPath), 0755); err != nil {
 		return fmt.Errorf("failed to create plist directory: %w", err)
 	}
@@ -116,7 +120,10 @@ func Install(log *zap.Logger, cfg *config.Config, configPath string, out io.Writ
 func Uninstall(log *zap.Logger, cfg *config.Config, out io.Writer) error {
 	log.Info("Uninstalling LaunchDaemon", zap.String("label", cfg.Daemon.Label))
 
-	plistPath := cfg.Daemon.PlistPath
+	plistPath, err := resolvePlistPath(cfg.Daemon.PlistPath, cfg.Daemon.Label)
+	if err != nil {
+		return fmt.Errorf("failed to resolve plist path: %w", err)
+	}
 
 	// Check if plist exists
 	if _, err := os.Stat(plistPath); os.IsNotExist(err) {
@@ -149,7 +156,10 @@ func Uninstall(log *zap.Logger, cfg *config.Config, out io.Writer) error {
 
 // Status shows the current daemon status
 func Status(log *zap.Logger, cfg *config.Config, out io.Writer) error {
-	plistPath := cfg.Daemon.PlistPath
+	plistPath, err := resolvePlistPath(cfg.Daemon.PlistPath, cfg.Daemon.Label)
+	if err != nil {
+		return fmt.Errorf("failed to resolve plist path: %w", err)
+	}
 
 	// Check if plist exists
 	if _, err := os.Stat(plistPath); os.IsNotExist(err) {
@@ -187,7 +197,10 @@ func Status(log *zap.Logger, cfg *config.Config, out io.Writer) error {
 
 // IsRunning checks whether the daemon is currently loaded and running
 func IsRunning(cfg *config.Config) (bool, error) {
-	plistPath := cfg.Daemon.PlistPath
+	plistPath, err := resolvePlistPath(cfg.Daemon.PlistPath, cfg.Daemon.Label)
+	if err != nil {
+		return false, err
+	}
 	domain := launchctlDomain(plistPath)
 	target := fmt.Sprintf("%s/%s", domain, cfg.Daemon.Label)
 	cmd := exec.Command("launchctl", "print", target)
@@ -205,9 +218,40 @@ func launchctlDomain(plistPath string) string {
 	return fmt.Sprintf("gui/%d", uid)
 }
 
+func resolvePlistPath(plistPath, label string) (string, error) {
+	if plistPath == "" {
+		return "", fmt.Errorf("plist path is empty")
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	expanded := os.ExpandEnv(plistPath)
+	if strings.HasPrefix(expanded, "~/") {
+		expanded = filepath.Join(homeDir, expanded[2:])
+	}
+
+	if strings.HasPrefix(expanded, "/Users/") && strings.Contains(expanded, "/Library/LaunchAgents/") {
+		baseName := filepath.Base(expanded)
+		if baseName == "" {
+			baseName = label + ".plist"
+		}
+		expanded = filepath.Join(homeDir, "Library", "LaunchAgents", baseName)
+	}
+
+	return expanded, nil
+}
+
 // InstallMonitor creates and loads the LaunchAgent for log monitoring
 func InstallMonitor(log *zap.Logger, cfg *config.Config, configPath string, out io.Writer) error {
 	log.Info("Installing Monitor LaunchAgent", zap.String("label", cfg.Daemon.Label+".monitor"))
+
+	plistPath, err := resolvePlistPath(cfg.Daemon.PlistPath, cfg.Daemon.Label)
+	if err != nil {
+		return fmt.Errorf("failed to resolve plist path: %w", err)
+	}
 
 	// Get absolute paths
 	binaryPath, err := os.Executable()
@@ -221,7 +265,7 @@ func InstallMonitor(log *zap.Logger, cfg *config.Config, configPath string, out 
 	}
 
 	monitorLabel := cfg.Daemon.Label + ".monitor"
-	monitorPlistPath := strings.Replace(cfg.Daemon.PlistPath, ".plist", ".monitor.plist", 1)
+	monitorPlistPath := strings.Replace(plistPath, ".plist", ".monitor.plist", 1)
 
 	// Create plist content for monitor
 	plistContent := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
@@ -305,7 +349,11 @@ func InstallMonitor(log *zap.Logger, cfg *config.Config, configPath string, out 
 // UninstallMonitor unloads and removes the Monitor LaunchAgent
 func UninstallMonitor(log *zap.Logger, cfg *config.Config, out io.Writer) error {
 	monitorLabel := cfg.Daemon.Label + ".monitor"
-	monitorPlistPath := strings.Replace(cfg.Daemon.PlistPath, ".plist", ".monitor.plist", 1)
+	plistPath, err := resolvePlistPath(cfg.Daemon.PlistPath, cfg.Daemon.Label)
+	if err != nil {
+		return fmt.Errorf("failed to resolve plist path: %w", err)
+	}
+	monitorPlistPath := strings.Replace(plistPath, ".plist", ".monitor.plist", 1)
 
 	log.Info("Uninstalling Monitor LaunchAgent", zap.String("label", monitorLabel))
 
@@ -341,7 +389,11 @@ func UninstallMonitor(log *zap.Logger, cfg *config.Config, out io.Writer) error 
 // StatusMonitor shows the current monitor daemon status
 func StatusMonitor(log *zap.Logger, cfg *config.Config, out io.Writer) error {
 	monitorLabel := cfg.Daemon.Label + ".monitor"
-	monitorPlistPath := strings.Replace(cfg.Daemon.PlistPath, ".plist", ".monitor.plist", 1)
+	plistPath, err := resolvePlistPath(cfg.Daemon.PlistPath, cfg.Daemon.Label)
+	if err != nil {
+		return fmt.Errorf("failed to resolve plist path: %w", err)
+	}
+	monitorPlistPath := strings.Replace(plistPath, ".plist", ".monitor.plist", 1)
 
 	// Check if plist exists
 	if _, err := os.Stat(monitorPlistPath); os.IsNotExist(err) {

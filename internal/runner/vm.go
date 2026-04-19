@@ -238,6 +238,15 @@ func (v *VMManager) Clone(ctx context.Context, instanceName string) error {
 func (v *VMManager) Start(ctx context.Context, instanceName string) (*exec.Cmd, error) {
 	v.log.Info("Starting VM", zap.String("instance", instanceName))
 
+	// Set display resolution before starting
+	if v.cfg.VM.Display != "" {
+		v.log.Info("Setting VM display", zap.String("display", v.cfg.VM.Display))
+		setCmd := exec.CommandContext(ctx, "tart", "set", instanceName, "--display", v.cfg.VM.Display)
+		if output, err := setCmd.CombinedOutput(); err != nil {
+			v.log.Warn("Failed to set display resolution", zap.Error(err), zap.String("output", string(output)))
+		}
+	}
+
 	cmd := exec.CommandContext(ctx, "tart", "run", "--no-graphics", instanceName)
 
 	if err := cmd.Start(); err != nil {

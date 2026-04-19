@@ -42,6 +42,7 @@ func defaultConfig() *config.Config {
 		VM: config.VMConfig{
 			Username: "admin",
 			Password: "admin",
+			Display:  "3840x2160",
 		},
 		Options: config.OptionsConfig{
 			LogFile:          "runner.log",

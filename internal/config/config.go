@@ -30,6 +30,7 @@ type GitHubConfig struct {
 type VMConfig struct {
 	Username string `mapstructure:"username" yaml:"username"`
 	Password string `mapstructure:"password" yaml:"password"`
+	Display  string `mapstructure:"display" yaml:"display"`
 }
 
 // RegistryConfig contains OCI registry settings
@@ -102,6 +103,7 @@ func setDefaults(v *viper.Viper) {
 	// VM defaults
 	v.SetDefault("vm.username", "admin")
 	v.SetDefault("vm.password", "admin")
+	v.SetDefault("vm.display", "3840x2160")
 
 	// GitHub defaults
 	v.SetDefault("github.runner_name", "runner")

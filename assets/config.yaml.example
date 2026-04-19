@@ -27,6 +27,8 @@ vm:
   # SSH credentials for the VM
   username: "admin"
   password: "admin"
+  # Display resolution for the VM (default: 3840x2160 for 4K)
+  display: "3840x2160"
 
 registry:
   # OCI registry URL (leave empty for local images)

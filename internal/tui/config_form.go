@@ -34,6 +34,7 @@ func newConfigForm(cfg *config.Config) configForm {
 		{key: "github.runner_group", label: "Runner group (optional)"},
 		{key: "vm.username", label: "VM username", required: true},
 		{key: "vm.password", label: "VM password", required: true, secret: true},
+		{key: "vm.display", label: "VM display (WxH)"},
 		{key: "registry.url", label: "Registry URL"},
 		{key: "registry.image_name", label: "Registry image name", required: true},
 		{key: "registry.username", label: "Registry username"},
@@ -131,6 +132,8 @@ func getFieldValue(cfg *config.Config, key string) string {
 		return cfg.VM.Username
 	case "vm.password":
 		return cfg.VM.Password
+	case "vm.display":
+		return cfg.VM.Display
 	case "registry.url":
 		return cfg.Registry.URL
 	case "registry.image_name":
@@ -180,6 +183,10 @@ func setFieldValue(cfg *config.Config, key, value string) {
 		cfg.VM.Username = value
 	case "vm.password":
 		cfg.VM.Password = value
+	case "vm.display":
+		if value != "" {
+			cfg.VM.Display = value
+		}
 	case "registry.url":
 		cfg.Registry.URL = value
 	case "registry.image_name":
