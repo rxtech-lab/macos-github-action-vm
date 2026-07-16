@@ -9,7 +9,7 @@ func (buildMenuItem) Title() string {
 }
 
 func (buildMenuItem) Description() string {
-	return "Run Packer/Tart build for runner"
+	return "Run Packer/Tart build from an external template"
 }
 
 func (buildMenuItem) OnSelect(m *model) (tea.Model, tea.Cmd) {

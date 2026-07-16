@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -95,7 +96,7 @@ func newModel() model {
 	menu := newMenuModel(rootMenuEntries())
 
 	buildInput := textinput.New()
-	buildInput.Placeholder = "Press Enter to build runner"
+	buildInput.Placeholder = "/path/to/runner.pkr.hcl"
 	buildInput.CharLimit = 512
 	buildInput.Width = 50
 
@@ -296,10 +297,15 @@ func (m model) updateBuildPrompt(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state = stateMenu
 		return m, nil
 	case "enter":
+		templatePath := strings.TrimSpace(m.buildInput.Value())
+		if templatePath == "" {
+			m.lastError = "packer template path is required"
+			return m, nil
+		}
 		m.state = stateMenu
 		m.busy = true
 		m.busyLabel = "Build VM image"
-		return m, tea.Batch(m.runBuildCmd(m.buildInput.Value()), m.spinner.Tick)
+		return m, tea.Batch(m.runBuildCmd(templatePath), m.spinner.Tick)
 	}
 
 	var cmd tea.Cmd
@@ -385,10 +391,18 @@ func (m model) runSetupCmd() tea.Cmd {
 	}
 }
 
-func (m model) runBuildCmd(ipsw string) tea.Cmd {
+func (m model) runBuildCmd(templatePath string) tea.Cmd {
 	return func() tea.Msg {
-		guestDir := "guest"
-		if err := runCommandSeries(m.logWriter, guestDir, buildCommands(ipsw)...); err != nil {
+		info, err := os.Stat(templatePath)
+		if err != nil {
+			return taskDoneMsg{action: actionBuild, err: fmt.Errorf("packer template not found: %w", err)}
+		}
+		if info.IsDir() {
+			return taskDoneMsg{action: actionBuild, err: fmt.Errorf("packer template %q is a directory, expected a .pkr.hcl file", templatePath)}
+		}
+		templateDir := filepath.Dir(templatePath)
+		templateFile := filepath.Base(templatePath)
+		if err := runCommandSeries(m.logWriter, templateDir, buildCommands(templateFile)...); err != nil {
 			return taskDoneMsg{action: actionBuild, err: err}
 		}
 		return taskDoneMsg{action: actionBuild, err: nil}
