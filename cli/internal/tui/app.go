@@ -17,6 +17,7 @@ import (
 	"github.com/rxtech-lab/rvmm/internal/daemon"
 	"github.com/rxtech-lab/rvmm/internal/runner"
 	"github.com/rxtech-lab/rvmm/internal/setup"
+	"github.com/rxtech-lab/rvmm/internal/updater"
 	"go.uber.org/zap"
 )
 
@@ -48,6 +49,7 @@ const (
 	actionMonitorDaemonUninstall
 	actionMonitorDaemonStatus
 	actionViewLogs
+	actionUpdateRequest
 	actionQuit
 )
 
@@ -81,7 +83,10 @@ type model struct {
 	windowWidth  int
 	windowHeight int
 	lastError    string
+	lastMessage  string
 	lastLogLine  string
+	updateStatus updater.Status
+	updaterReady bool
 }
 
 func Run() {
@@ -134,11 +139,17 @@ func newModel() model {
 	if logErr != nil {
 		m.lastError = logErr.Error()
 	}
+	if status, err := updater.ReadStatus(updater.StatusPath); err == nil {
+		m.updateStatus = status
+		m.updaterReady = true
+	} else if !errors.Is(err, os.ErrNotExist) {
+		m.updaterReady = true
+	}
 	return m
 }
 
 func (m model) Init() tea.Cmd {
-	return tickLogTail(m.logPath)
+	return tea.Batch(tickLogTail(m.logPath), tickUpdaterStatus())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -173,6 +184,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.lastLogLine = msg.line
 		}
 		return m, tickLogTail(m.logPath)
+	case updaterStatusMsg:
+		m.updateStatus = msg.status
+		m.updaterReady = msg.installed
+		return m, tickUpdaterStatus()
 	case taskDoneMsg:
 		m.busy = false
 		m.busyLabel = ""
@@ -182,8 +197,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.err != nil {
 			m.lastError = msg.err.Error()
+			m.lastMessage = ""
 		} else {
 			m.lastError = ""
+			if msg.action == actionUpdateRequest {
+				m.lastMessage = "Update requested; installation will continue in the background."
+			}
 		}
 		return m, nil
 	}
@@ -461,6 +480,13 @@ func (m model) runListImagesCmd() tea.Cmd {
 			return taskDoneMsg{action: actionListImages, err: err}
 		}
 		return taskDoneMsg{action: actionListImages, err: nil}
+	}
+}
+
+func (m model) runUpdateRequestCmd() tea.Cmd {
+	return func() tea.Msg {
+		err := updater.RequestUpdate(updater.RequestDirectory)
+		return taskDoneMsg{action: actionUpdateRequest, err: err}
 	}
 }
 

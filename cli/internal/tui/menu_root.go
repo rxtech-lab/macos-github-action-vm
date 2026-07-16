@@ -10,6 +10,7 @@ func rootMenuEntries() []menuEntry {
 		daemonMenuItem{},
 		monitorDaemonMenuItem{},
 		viewLogsMenuItem{},
+		updateMenuItem{},
 		quitMenuItem{},
 	}
 }

@@ -1,6 +1,7 @@
 rvmm
 cli/bin/
 *.pkg
+*.pkg.sha256
 *.yaml
 *.log
 
