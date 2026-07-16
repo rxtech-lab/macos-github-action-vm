@@ -9,6 +9,7 @@ A tool for managing macOS virtual machines as GitHub Actions self-hosted runners
 - **Log Monitoring**: Send VM logs to PostHog for centralized monitoring across multiple machines
 - **Interactive TUI**: User-friendly terminal interface for all operations
 - **Headless Mode**: Run in background via LaunchAgent/LaunchDaemon
+- **Automatic Updates**: Install verified GitHub releases silently through a dedicated root updater
 
 ## Installation
 
@@ -25,6 +26,10 @@ A tool for managing macOS virtual machines as GitHub Actions self-hosted runners
 ### Install from Release
 
 Download the notarized `rvmm_macOS_arm64.pkg` installer from the [GitHub Releases](../../releases) page and install it. The binary is installed to `/usr/local/bin/rvmm`.
+
+The package also installs `lab.rxtech.rvmm.updater`, a narrowly scoped root LaunchDaemon. The initial package installation requires administrator approval. After that, the updater checks for a new published GitHub release at boot and every six hours, verifies the SHA-256 checksum, Developer ID Installer signature, Apple team, and notarization, then installs it without prompting.
+
+Select **Update rvmm** in the TUI to request an immediate background check. Installing an update does not terminate the currently running RVMM process or active VM work; the new binary is used on the next safe service start.
 
 ### Build from Source
 
@@ -239,6 +244,7 @@ In PostHog, you can:
   - **cli/internal/monitor**: Log file monitoring with tail-follow logic
   - **cli/internal/posthog**: PostHog API client for log event capture
   - **cli/internal/tui**: Bubble Tea terminal UI
+  - **cli/internal/updater**: GitHub release discovery, verified downloads, updater state, and package installation
   - **cli/assets**: Embedded plist template and example config
   - **cli/scripts**: Build, signing, and notarization scripts for releases
 - **guest**: Example external Packer template for building the runner VM image
@@ -248,7 +254,7 @@ In PostHog, you can:
 Releases are automated via GitHub Actions:
 
 1. The "Create a new release" workflow (`create-release.yaml`) runs semantic-release to tag and create a GitHub release.
-2. The "Release rvmm CLI" workflow (`release-cli.yaml`) triggers on the release event: it builds the CLI, signs the binary, packages it as a `.pkg` installer, notarizes it with Apple, and uploads `rvmm_macOS_arm64.pkg` to the GitHub release.
+2. The "Release rvmm CLI" workflow (`release-cli.yaml`) triggers on the release event: it stamps the tag into the binary, signs it, verifies its Mach-O UUID, packages and notarizes it, and uploads `rvmm_macOS_arm64.pkg` plus its SHA-256 checksum.
 
 ## Daemon Files
 
@@ -263,6 +269,15 @@ After installation, daemons create the following files:
 
 - Plist: `${daemon.plist_path}` with `.monitor` suffix
 - Logs: `${working_directory}/monitor_stdout.log`, `${working_directory}/monitor_stderr.log`
+
+### Automatic Updater
+
+- Plist: `/Library/LaunchDaemons/lab.rxtech.rvmm.updater.plist`
+- Status: `/Library/Application Support/RVMM/Updater/status.json`
+- Requests: `/Library/Application Support/RVMM/Updater/requests/`
+- Logs: `/Library/Logs/rvmm-updater.log`
+
+The updater is intentionally separate from the runner daemon. Only verified package installation runs as root; Tart and GitHub Actions runner operations continue under `daemon.user`.
 
 ## Troubleshooting
 

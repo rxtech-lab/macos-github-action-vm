@@ -40,9 +40,17 @@ jobs:
           p12-password: ${{ secrets.P12_PASSWORD }}
 
       - name: Build and sign the binary
-        run: make build && ./scripts/sign.sh
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "release" ]]; then
+            VERSION="${GITHUB_REF_NAME}"
+          else
+            VERSION="v0.0.0-${GITHUB_SHA:0:12}"
+          fi
+          make build VERSION="${VERSION}" COMMIT="${GITHUB_SHA:0:12}" TEAM_ID="${APPLE_TEAM_ID}"
+          ./scripts/sign.sh
         env:
           SIGNING_CERTIFICATE_NAME: ${{ secrets.SIGNING_CERTIFICATE_NAME }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Verify Mach-O UUID
         run: otool -l bin/rvmm | grep -q 'cmd LC_UUID'
@@ -71,5 +79,7 @@ jobs:
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: cli/rvmm_macOS_arm64.pkg
+          files: |
+            cli/rvmm_macOS_arm64.pkg
+            cli/rvmm_macOS_arm64.pkg.sha256
           token: ${{ secrets.GITHUB_TOKEN }}

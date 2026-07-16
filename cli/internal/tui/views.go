@@ -34,13 +34,18 @@ func (m model) viewMenu() string {
 	if m.lastError != "" {
 		lastError = "\n\nLast error: " + m.lastError
 	}
+	lastMessage := ""
+	if m.lastMessage != "" {
+		lastMessage = "\n\n" + m.lastMessage
+	}
+	updaterLine := "Updater: " + formatUpdaterStatus(m.updateStatus, m.updaterReady)
 
 	header := headerView("RVMM", status, latest)
 	tips := "enter=select  s=stop runner  q=quit"
 	if len(m.menuStack) > 0 {
 		tips = "enter=select  esc=back  s=stop runner  q=quit"
 	}
-	return fmt.Sprintf("%s\n\n%s\n\n%s%s\n\nTips: %s", header, m.menu.View(), logLine, lastError, tips)
+	return fmt.Sprintf("%s\n\n%s\n\n%s\n%s%s%s\n\nTips: %s", header, m.menu.View(), logLine, updaterLine, lastMessage, lastError, tips)
 }
 
 func (m model) viewConfig() string {

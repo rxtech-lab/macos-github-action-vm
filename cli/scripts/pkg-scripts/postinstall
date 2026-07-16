@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -euo pipefail
+
+TARGET_VOLUME="${3:-/}"
+STATE_DIR="${TARGET_VOLUME%/}/Library/Application Support/RVMM/Updater"
+REQUEST_DIR="${STATE_DIR}/requests"
+PLIST_PATH="${TARGET_VOLUME%/}/Library/LaunchDaemons/lab.rxtech.rvmm.updater.plist"
+LABEL="lab.rxtech.rvmm.updater"
+
+/usr/bin/install -d -o root -g wheel -m 0755 "${STATE_DIR}"
+/usr/bin/install -d -o root -g admin -m 0770 "${REQUEST_DIR}"
+/usr/sbin/chown root:wheel "${PLIST_PATH}"
+/bin/chmod 0644 "${PLIST_PATH}"
+
+if [ "${TARGET_VOLUME}" = "/" ]; then
+  /bin/launchctl enable "system/${LABEL}" || true
+  if ! /bin/launchctl print "system/${LABEL}" >/dev/null 2>&1; then
+    /bin/launchctl bootstrap system "${PLIST_PATH}"
+  fi
+fi
+
+exit 0

@@ -10,11 +10,13 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/rxtech-lab/rvmm/internal/buildinfo"
 	"github.com/rxtech-lab/rvmm/internal/config"
 	"github.com/rxtech-lab/rvmm/internal/monitor"
 	"github.com/rxtech-lab/rvmm/internal/posthog"
 	"github.com/rxtech-lab/rvmm/internal/runner"
 	"github.com/rxtech-lab/rvmm/internal/tui"
+	"github.com/rxtech-lab/rvmm/internal/updater"
 	"go.uber.org/zap"
 )
 
@@ -27,7 +29,27 @@ func main() {
 		monitorHeadless()
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "update-worker" {
+		updateWorker()
+		return
+	}
 	tui.Run()
+}
+
+func updateWorker() {
+	logger, err := zap.NewProduction()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create logger: %v\n", err)
+		os.Exit(1)
+	}
+	defer logger.Sync()
+
+	worker := updater.NewWorker(buildinfo.Version, buildinfo.TeamID)
+	if err := worker.Run(context.Background()); err != nil {
+		logger.Error("Automatic update failed", zap.Error(err))
+		os.Exit(1)
+	}
+	logger.Info("Automatic update check completed")
 }
 
 func runHeadless() {
