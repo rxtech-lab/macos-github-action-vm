@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 
 BINARY_NAME := rvmm
+BUILD_DIR := ./bin
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
@@ -11,7 +12,7 @@ LDFLAGS := -s -w \
 	-X github.com/rxtech-lab/rvmm/cmd.Commit=$(COMMIT) \
 	-X github.com/rxtech-lab/rvmm/cmd.BuildDate=$(BUILD_DATE)
 
-.PHONY: deps build build-all install clean test
+.PHONY: deps build build-all install package clean test
 
 deps:
 	@echo "==> Fetching dependencies..."
@@ -24,27 +25,33 @@ build: deps
 	@echo "    Version: $(VERSION)"
 	@echo "    Commit:  $(COMMIT)"
 	@echo "    Date:    $(BUILD_DATE)"
-	go build -ldflags "$(LDFLAGS)" -o "$(BINARY_NAME)" .
-	@echo "==> Built: $(BINARY_NAME)"
+	mkdir -p $(BUILD_DIR)
+	go build -ldflags "$(LDFLAGS)" -o "$(BUILD_DIR)/$(BINARY_NAME)" .
+	@echo "==> Built: $(BUILD_DIR)/$(BINARY_NAME)"
 
 build-all: deps
 	@echo "==> Building for all platforms..."
+	mkdir -p $(BUILD_DIR)
 	@echo "    Building darwin/arm64..."
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o "$(BINARY_NAME)-darwin-arm64" .
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o "$(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64" .
 	@echo "    Building darwin/amd64..."
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o "$(BINARY_NAME)-darwin-amd64" .
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o "$(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64" .
 	@echo "==> Built binaries:"
-	ls -la "$(BINARY_NAME)"-darwin-*
+	ls -la "$(BUILD_DIR)/$(BINARY_NAME)"-darwin-*
 
-install: deps
-	$(MAKE) build
+install: build
 	@echo "==> Installing to /usr/local/bin..."
-	sudo cp "$(BINARY_NAME)" /usr/local/bin/
+	sudo cp "$(BUILD_DIR)/$(BINARY_NAME)" /usr/local/bin/
 	@echo "==> Installed: /usr/local/bin/$(BINARY_NAME)"
+
+package: build
+	./scripts/sign.sh
+	./scripts/package-notarize.sh
 
 clean:
 	@echo "==> Cleaning..."
-	rm -f "$(BINARY_NAME)" "$(BINARY_NAME)"-darwin-*
+	rm -rf $(BUILD_DIR)
+	rm -f $(BINARY_NAME)_macOS_*.pkg
 	@echo "==> Cleaned"
 
 test:

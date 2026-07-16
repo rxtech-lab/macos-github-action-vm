@@ -66,7 +66,7 @@ func (m model) viewConfig() string {
 }
 
 func (m model) viewBuildPrompt() string {
-	return "Build VM image\n\n" + m.buildInput.View() + "\n\nEnter to start, Esc to cancel"
+	return "Build VM image\n\nPath to Packer template (.pkr.hcl):\n" + m.buildInput.View() + "\n\nEnter to start, Esc to cancel"
 }
 
 func (m model) viewPushPrompt() string {

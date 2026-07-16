@@ -8,11 +8,11 @@ packer {
 }
 
 source "tart-cli" "tart" {
-  vm_base_name = "ghcr.io/cirruslabs/macos-tahoe-xcode:26.2"
+  vm_base_name = "ghcr.io/cirruslabs/macos-tahoe-xcode:26.5"
   vm_name      = "runner"
   cpu_count    = 10
   memory_gb    = 32
-  disk_size_gb = 120
+  disk_size_gb = 140
   display      = "3840x2160"
   ssh_password = "admin"
   ssh_username = "admin"

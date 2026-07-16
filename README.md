@@ -22,17 +22,23 @@ A tool for managing macOS virtual machines as GitHub Actions self-hosted runners
   - `wget` - File downloads
   - `packer` - VM image building
 
+### Install from Release
+
+Download the notarized `rvmm_macOS_arm64.pkg` installer from the [GitHub Releases](../../releases) page and install it. The binary is installed to `/usr/local/bin/rvmm`.
+
 ### Build from Source
+
+The CLI lives in the `cli/` directory:
 
 ```bash
 git clone <repository-url>
-cd macos-github-action-vm
-go build -o rvmm main.go
+cd macos-github-action-vm/cli
+make build   # outputs cli/bin/rvmm
 ```
 
 ## Configuration
 
-Create a `rvmm.yaml` configuration file (see `assets/config.yaml.example` for a template):
+Create a `rvmm.yaml` configuration file (see `cli/assets/config.yaml.example` for a template):
 
 ```yaml
 github:
@@ -88,13 +94,26 @@ Run without arguments to start the interactive terminal UI:
 The TUI provides menus for:
 
 - **Setup**: Install required dependencies
-- **Build**: Build VM image from IPSW
+- **Build**: Build VM image from an external Packer template
 - **Config**: Edit configuration
 - **Run**: Start runners interactively
 - **Images**: List local VM images
 - **Daemon**: Install/manage runner daemon
 - **Monitor Daemon**: Install/manage log monitoring daemon
 - **View Logs**: Tail log files
+
+### VM Image Templates
+
+VM image templates are not bundled with the CLI — they are provided externally. When you select "Build VM image" in the TUI, you are prompted for the path to a Packer template (`.pkr.hcl`). The CLI runs `packer init` and `packer build` in the template's directory, so any supporting files (setup scripts, etc.) should live next to the template.
+
+An example template is provided in [`guest/runner.pkr.hcl`](guest/runner.pkr.hcl):
+
+```bash
+rvmm  # Open TUI
+# Select "Build VM image" and enter e.g. /path/to/guest/runner.pkr.hcl
+```
+
+You can maintain your own templates in a separate repository and point the CLI at them.
 
 ### Headless Mode
 
@@ -213,14 +232,23 @@ In PostHog, you can:
 
 ## Architecture
 
-- **internal/config**: Configuration management with Viper
-- **internal/runner**: GitHub Actions runner logic and VM management
-- **internal/daemon**: LaunchAgent/LaunchDaemon installation and management
-- **internal/monitor**: Log file monitoring with tail-follow logic
-- **internal/posthog**: PostHog API client for log event capture
-- **internal/tui**: Bubble Tea terminal UI
-- **assets**: Embedded templates and example configs
-- **guest**: VM image building scripts (Packer)
+- **cli**: The rvmm CLI (Go module)
+  - **cli/internal/config**: Configuration management with Viper
+  - **cli/internal/runner**: GitHub Actions runner logic and VM management
+  - **cli/internal/daemon**: LaunchAgent/LaunchDaemon installation and management
+  - **cli/internal/monitor**: Log file monitoring with tail-follow logic
+  - **cli/internal/posthog**: PostHog API client for log event capture
+  - **cli/internal/tui**: Bubble Tea terminal UI
+  - **cli/assets**: Embedded plist template and example config
+  - **cli/scripts**: Build, signing, and notarization scripts for releases
+- **guest**: Example external Packer template for building the runner VM image
+
+## Releases
+
+Releases are automated via GitHub Actions:
+
+1. The "Create a new release" workflow (`create-release.yaml`) runs semantic-release to tag and create a GitHub release.
+2. The "Release rvmm CLI" workflow (`release-cli.yaml`) triggers on the release event: it builds the CLI, signs the binary, packages it as a `.pkg` installer, notarizes it with Apple, and uploads `rvmm_macOS_arm64.pkg` to the GitHub release.
 
 ## Daemon Files
 

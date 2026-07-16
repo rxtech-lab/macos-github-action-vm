@@ -54,10 +54,10 @@ func streamReader(writer io.Writer, reader io.Reader, wg *sync.WaitGroup) {
 	}
 }
 
-func buildCommands(ipsw string) []*exec.Cmd {
+func buildCommands(templateFile string) []*exec.Cmd {
 	return []*exec.Cmd{
-		exec.Command("packer", "init", "runner.pkr.hcl"),
-		exec.Command("packer", "build", "runner.pkr.hcl"),
+		exec.Command("packer", "init", templateFile),
+		exec.Command("packer", "build", templateFile),
 	}
 }
 

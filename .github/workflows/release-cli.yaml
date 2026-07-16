@@ -1,0 +1,71 @@
+name: Release rvmm CLI
+
+on:
+  push:
+  release:
+    types:
+      - released
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    name: Build, Sign and Notarize macOS Binary
+    runs-on: [self-hosted, macOS, ARM64]
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          check-latest: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Import code signing certificates
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.P12_PASSWORD }}
+
+      - name: Build and sign the binary
+        run: make build && ./scripts/sign.sh
+        env:
+          SIGNING_CERTIFICATE_NAME: ${{ secrets.SIGNING_CERTIFICATE_NAME }}
+
+      - name: Import installer signing certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.INSTALLER_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.P12_PASSWORD }}
+          keychain: installer
+
+      - name: Package and notarize
+        if: github.event_name == 'release'
+        run: |
+          # Strip leading 'v' from semver tags (v1.2.3 -> 1.2.3) for pkg version
+          PKG_VERSION="${GITHUB_REF_NAME#v}"
+          export PKG_VERSION
+          ./scripts/package-notarize.sh
+        env:
+          INSTALLER_SIGNING_CERTIFICATE_NAME: ${{ secrets.INSTALLER_SIGNING_CERTIFICATE_NAME }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PWD: ${{ secrets.APPLE_ID_PWD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Upload pkg to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: cli/rvmm_macOS_arm64.pkg
+          token: ${{ secrets.GITHUB_TOKEN }}
